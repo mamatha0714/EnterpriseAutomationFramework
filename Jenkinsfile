@@ -3,26 +3,49 @@ pipeline {
     agent any
 
     tools {
-
         maven 'Maven3'
+    }
+
+    environment {
+        ENV = 'qa'
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Checkout Code') {
 
             steps {
-
-                git branch: 'main',
-                    url: 'https://github.com/username/repo.git'
+                checkout scm
             }
         }
 
-        stage('Start Grid') {
+        stage('Verify Environment') {
 
             steps {
 
-                sh 'docker compose up -d'
+                sh 'java -version'
+                sh 'mvn -version'
+                sh 'docker --version'
+            }
+        }
+
+        stage('Start Selenium Grid') {
+
+            steps {
+
+                sh '''
+                    docker compose up -d
+                '''
+            }
+        }
+
+        stage('Wait For Grid') {
+
+            steps {
+
+                sh '''
+                    sleep 15
+                '''
             }
         }
 
@@ -30,27 +53,53 @@ pipeline {
 
             steps {
 
-                sh 'mvn clean test'
+                sh """
+                    mvn clean test \
+                    -Denv=${ENV}
+                """
             }
         }
 
-        stage('Generate Allure') {
+        stage('Generate Allure Report') {
 
             steps {
 
                 allure(
                     includeProperties: false,
+                    jdk: '',
                     results: [[path: 'allure-results']]
                 )
             }
         }
+    }
 
-        stage('Stop Grid') {
+    post {
 
-            steps {
+        always {
 
-                sh 'docker compose down'
-            }
+            archiveArtifacts(
+                artifacts: 'screenshots/**/*.png',
+                allowEmptyArchive: true
+            )
+
+            archiveArtifacts(
+                artifacts: 'allure-results/**/*',
+                allowEmptyArchive: true
+            )
+
+            sh '''
+                docker compose down
+            '''
+        }
+
+        success {
+
+            echo 'Execution Completed Successfully'
+        }
+
+        failure {
+
+            echo 'Execution Failed'
         }
     }
 }
