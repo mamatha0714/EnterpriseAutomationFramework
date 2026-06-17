@@ -1,0 +1,9 @@
+target/
+allure-results/
+allure-report/
+.idea/
+.settings/
+.project
+.classpath
+*.log
+screenshots/
